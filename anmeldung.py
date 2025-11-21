@@ -31,15 +31,29 @@ USER_DATA = {
 def run_bot():
     # Setup Chrome Driver FÜR LOKALEN BETRIEB (SICHTBARER MODUS)
     options = webdriver.ChromeOptions()
-    
-    # !!! WICHTIG: HEADLESS-MODUS DEAKTIVIERT !!!
-    # Es wird kein --headless Argument verwendet.
-    # Stattdessen fügen wir --start-maximized hinzu, um das Fenster gut sichtbar zu machen.
     options.add_argument("--start-maximized")         
     
-    # Alle server-spezifischen Argumente (--no-sandbox, --disable-dev-shm-usage, Pfadprüfung) 
-    # wurden entfernt, da sie für den lokalen Desktop-Betrieb nicht notwendig sind 
-    # und manchmal zu Problemen führen können.
+    # --- FEHLERBEHEBUNG UBUNTU/DEBIAN: EXPLIZITE BINÄRE PFADSUECHE ---
+    # Sucht nach gängigen Pfaden auf Debian/Ubuntu Systemen.
+    chrome_paths = [
+        '/usr/bin/google-chrome',
+        '/usr/bin/chromium-browser',
+        '/usr/local/bin/google-chrome',
+        '/opt/google/chrome/google-chrome'
+    ]
+    
+    found_path = None
+    for path in chrome_paths:
+        if os.path.exists(path):
+            options.binary_location = path
+            found_path = path
+            break
+            
+    if found_path:
+        print(f"INFO: Chrome/Chromium-Binary-Pfad explizit gesetzt auf: {found_path}")
+    else:
+        print("WARNUNG: Konnte Chrome-Binary nicht an Standardpfaden finden. Verlasse mich auf PATH-Variable.")
+    # -------------------------------------------------------------------
     
     try:
         # Initialisiert ChromeDriver und startet die Session
@@ -149,7 +163,13 @@ def run_bot():
         time.sleep(5)
 
     except Exception as e:
-        print(f"\n--- FEHLERBERICHT ---\n{e}")
+        # Hier wird der SessionNotCreatedException abgefangen und ausgegeben
+        print(f"\n--- FEHLERBERICHT ---\nEin Fehler ist aufgetreten: {e}")
+        print("\n*** ZUSÄTZLICHE INFORMATION ***")
+        if not found_path:
+            print("Die WARNUNG oben besagt, dass der Chrome-Pfad nicht gefunden wurde.")
+            print("Bitte prüfe, ob Google Chrome oder Chromium installiert ist. Wenn ja, suche den exakten Pfad zur Binärdatei (z.B. /usr/bin/google-chrome) und trage ihn manuell im Skript in der Liste 'chrome_paths' ein.")
+            
     finally:
         print("Skript beendet.")
         if 'driver' in locals() and driver:
