@@ -6,38 +6,51 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import Select
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
+from selenium.common.exceptions import SessionNotCreatedException, TimeoutException
+import os 
 
 # --- KONFIGURATION (HIER ÄNDERN FÜR ANDERE KURSE) ---
 
+# WICHTIG: Ändere die URL und die Kursnummer VOR dem Start.
 URL = "https://www.sportangebot.uni-bonn.de/angebote/aktueller_zeitraum/_Fussball.html"
-
 TARGET_KURS_NR = "121262"  
 
-# 3. PRÜFEN: Deine Daten (bleiben gleich, wenn es für dich ist)
+# Deine Daten
 USER_DATA = {
     "sex": "M",
     "vorname": "Pascal",
     "name": "Haag",
     "strasse": "Magdalenenstraße 36",
     "ort": "53121 Bonn",
-    "status": "S-UNIB",
+    "status": "S-UNIB", # Student Uni Bonn
     "matnr": "50282283",
     "email": "pascal.haag@outlook.de",
     "telefon": "01749134509"
 }
 
 def run_bot():
-    # Setup
+    # Setup Chrome Driver FÜR LOKALEN BETRIEB (SICHTBARER MODUS)
     options = webdriver.ChromeOptions()
-    options.add_argument("--start-maximized") 
-    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
-
+    
+    # !!! WICHTIG: HEADLESS-MODUS DEAKTIVIERT !!!
+    # Es wird kein --headless Argument verwendet.
+    # Stattdessen fügen wir --start-maximized hinzu, um das Fenster gut sichtbar zu machen.
+    options.add_argument("--start-maximized")         
+    
+    # Alle server-spezifischen Argumente (--no-sandbox, --disable-dev-shm-usage, Pfadprüfung) 
+    # wurden entfernt, da sie für den lokalen Desktop-Betrieb nicht notwendig sind 
+    # und manchmal zu Problemen führen können.
+    
     try:
+        # Initialisiert ChromeDriver und startet die Session
+        driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+        
         print(f"Öffne {URL}...")
         driver.get(URL)
         
         # --- SEITE 1: KURS AUSWÄHLEN ---
         print(f"Suche Kurs {TARGET_KURS_NR}...")
+        # Sucht den Buchen-Button in der Zeile mit der Kursnummer
         xpath_button = f"//td[contains(text(), '{TARGET_KURS_NR}')]/..//input[@type='submit'][@value='buchen']"
         
         book_btn = WebDriverWait(driver, 10).until(
@@ -60,14 +73,15 @@ def run_bot():
 
         # --- SEITE 2: FORMULAR AUSFÜLLEN ---
         print("Fülle Formular aus...")
+        # Warten, bis das erste Feld geladen ist
         WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.NAME, "vorname")))
 
-        # 1. Status wählen
+        # 1. Status wählen (wichtig, da es weitere Felder einblenden kann)
         status_select = Select(driver.find_element(By.NAME, "statusorig"))
         status_select.select_by_value(USER_DATA['status'])
         time.sleep(1)
 
-        # 2. Matrikelnummer
+        # 2. Matrikelnummer (falls nötig)
         if "UNIB" in USER_DATA['status']:
             try:
                 matnr_field = WebDriverWait(driver, 5).until(
@@ -75,10 +89,12 @@ def run_bot():
                 )
                 matnr_field.clear()
                 matnr_field.send_keys(USER_DATA['matnr'])
+            except TimeoutException as e:
+                print(f"Info: Matrikelnummer-Feld war nicht bereit oder nicht nötig (Timeout): {e}")
             except Exception as e:
-                print(f"Info: Matrikelnummer-Feld nicht bereit oder nötig: {e}")
+                print(f"Info: Matrikelnummer-Feld-Fehler: {e}")
 
-        # 3. Restliche Felder
+        # 3. Restliche Felder füllen
         sex_radio = driver.find_element(By.CSS_SELECTOR, f"input[name='sex'][value='{USER_DATA['sex']}']")
         driver.execute_script("arguments[0].click();", sex_radio)
 
@@ -89,6 +105,7 @@ def run_bot():
         driver.find_element(By.NAME, "email").send_keys(USER_DATA['email'])
         driver.find_element(By.NAME, "telefon").send_keys(USER_DATA['telefon'])
 
+        # AGB Checkbox klicken
         tnbed_checkbox = driver.find_element(By.NAME, "tnbed")
         driver.execute_script("arguments[0].click();", tnbed_checkbox)
         
@@ -96,6 +113,7 @@ def run_bot():
         print("--- WARTE 12 SEKUNDEN AUF TIMER (SPAMSCHUTZ) ---")
         time.sleep(12) 
         
+        # Sicherstellen, dass der Button über seine ID gefunden wird
         print("Suche Button 'bs_submit'...")
         submit_step1 = WebDriverWait(driver, 10).until(
             EC.element_to_be_clickable((By.ID, "bs_submit"))
@@ -116,14 +134,17 @@ def run_bot():
             print("Erfolg: Finaler Button gefunden!")
             
             # --- BUCHUNG AUSLÖSEN ---
-            # Um wirklich zu buchen, entferne das '#' in der nächsten Zeile:
             driver.execute_script("arguments[0].click();", final_button)
             print("BUCHUNG WURDE AUSGEFÜHRT!")
 
-        except Exception:
-            print("FEHLER: Konnte Bestätigungsseite nicht erreichen.")
+        except TimeoutException:
+            print("FEHLER: Konnte Bestätigungsseite (verbindlich buchen) nicht erreichen. Mache Screenshot.")
             driver.save_screenshot("fehler_screenshot_final.png")
             raise 
+        except Exception as e:
+             print(f"Unbekannter Fehler beim finalen Schritt: {e}")
+             driver.save_screenshot("fehler_screenshot_final.png")
+             raise 
 
         time.sleep(5)
 
@@ -131,7 +152,8 @@ def run_bot():
         print(f"\n--- FEHLERBERICHT ---\n{e}")
     finally:
         print("Skript beendet.")
-        driver.quit()
+        if 'driver' in locals() and driver:
+            driver.quit()
 
 if __name__ == "__main__":
     run_bot()
