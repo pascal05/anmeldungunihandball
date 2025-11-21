@@ -33,6 +33,12 @@ def run_bot():
     options = webdriver.ChromeOptions()
     options.add_argument("--start-maximized")         
     
+    # NEU: Hinzugefügte Stabilitätsargumente für Ubuntu (auch im sichtbaren Modus notwendig)
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--disable-gpu")
+    # Ende der NEU hinzugefügten Stabilitätsargumente
+
     # --- FEHLERBEHEBUNG UBUNTU/DEBIAN: EXPLIZITE BINÄRE PFADSUECHE ---
     # Sucht nach gängigen Pfaden auf Debian/Ubuntu Systemen.
     chrome_paths = [
@@ -148,8 +154,9 @@ def run_bot():
             print("Erfolg: Finaler Button gefunden!")
             
             # --- BUCHUNG AUSLÖSEN ---
-            driver.execute_script("arguments[0].click();", final_button)
-            print("BUCHUNG WURDE AUSGEFÜHRT!")
+            # Um wirklich zu buchen, entferne das '#' in der nächsten Zeile:
+            # driver.execute_script("arguments[0].click();", final_button)
+            # print("BUCHUNG WURDE AUSGEFÜHRT!")
 
         except TimeoutException:
             print("FEHLER: Konnte Bestätigungsseite (verbindlich buchen) nicht erreichen. Mache Screenshot.")
