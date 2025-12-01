@@ -12,20 +12,20 @@ import os
 # --- KONFIGURATION (HIER ÄNDERN FÜR ANDERE KURSE) ---
 
 # WICHTIG: Ändere die URL und die Kursnummer VOR dem Start.
-URL = "https://www.sportangebot.uni-bonn.de/angebote/aktueller_zeitraum/_Fussball.html"
-TARGET_KURS_NR = "121262"  
+URL = "https://www.sportangebot.uni-bonn.de/angebote/aktueller_zeitraum/_Handball.html
+TARGET_KURS_NR = "121401"  
 
 # Deine Daten
 USER_DATA = {
-    "sex": "M",
-    "vorname": "Pascal",
-    "name": "Haag",
-    "strasse": "Magdalenenstraße 36",
-    "ort": "53121 Bonn",
+    "sex": "",
+    "vorname": "",
+    "name": "",
+    "strasse": "6",
+    "ort": "",
     "status": "S-UNIB", # Student Uni Bonn
-    "matnr": "50282283",
-    "email": "pascal.haag@outlook.de",
-    "telefon": "01749134509"
+    "matnr": "",
+    "email": "",
+    "telefon": ""
 }
 
 def run_bot():
