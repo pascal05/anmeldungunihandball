@@ -66,7 +66,7 @@ USER_DATA = {
 ## ▶️ Starten
 
 ``` bash
-python3 sportbot.py
+python3 anmeldung.py
 ```
 
 Chrome öffnet sich automatisch, der Bot übernimmt den Rest.
@@ -77,3 +77,4 @@ Chrome öffnet sich automatisch, der Bot übernimmt den Rest.
 
 Die Buchung wird **wirklich automatisch abgesendet**.\
 Achte darauf, dass deine Daten und der Kurs korrekt sind.
+Es wird eine grafische Oberfläche für den Bot benötigt, da er wirklich chrome öffnet.
