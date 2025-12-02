@@ -12,8 +12,7 @@ Formular aus und führt die **verbindliche Buchung** automatisch aus.
 ### 1. Repository klonen
 
 ``` bash
-git clone <repo-url>
-cd sportbot
+git clone https://github.com/pascal05/anmeldungunihandball
 ```
 
 ### 2. Abhängigkeiten installieren
