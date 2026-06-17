@@ -1,186 +1,154 @@
+#!/usr/bin/env python3
+"""
+Uni Bonn Sportbuchungs-Bot
+Abhängigkeiten: pip install requests beautifulsoup4
+Kein Browser oder Selenium notwendig.
+"""
+
+import sys
 import time
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.support.ui import Select
-from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
-from selenium.common.exceptions import SessionNotCreatedException, TimeoutException
-import os 
+import requests
+from bs4 import BeautifulSoup
+from urllib.parse import urljoin
 
-# --- KONFIGURATION (HIER ÄNDERN FÜR ANDERE KURSE) ---
+# --- KONFIGURATION ---
 
-# WICHTIG: Ändere die URL und die Kursnummer VOR dem Start.
-URL = "https://www.sportangebot.uni-bonn.de/angebote/aktueller_zeitraum/_Handball.html
-TARGET_KURS_NR = "121401"  
+URL = "https://www.sportangebot.uni-bonn.de/angebote/aktueller_zeitraum/_Handball.html"
+TARGET_KURS_NR = "121401"
 
-# Deine Daten
 USER_DATA = {
-    "sex": "",
+    "sex": "m",         # "m" oder "w"
     "vorname": "",
     "name": "",
-    "strasse": "6",
+    "strasse": "",
     "ort": "",
     "status": "S-UNIB", # Student Uni Bonn
     "matnr": "",
     "email": "",
-    "telefon": ""
+    "telefon": "",
 }
 
+# --- BOT ---
+
+HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
+    )
+}
+
+
+def hidden_fields(form):
+    return {
+        inp["name"]: inp.get("value", "")
+        for inp in form.find_all("input", type="hidden")
+        if inp.get("name")
+    }
+
+
+def submit_form(session, form, base_url, extra=None):
+    action = urljoin(base_url, form.get("action", base_url))
+    data = hidden_fields(form)
+    if extra:
+        data.update(extra)
+    method = form.get("method", "get").lower()
+    if method == "post":
+        return session.post(action, data=data, timeout=30)
+    return session.get(action, params=data, timeout=30)
+
+
+def save_and_exit(html, filename, message):
+    with open(filename, "w", encoding="utf-8") as f:
+        f.write(html)
+    sys.exit(f"{message} — Antwort gespeichert in {filename}")
+
+
 def run_bot():
-    # Setup Chrome Driver FÜR LOKALEN BETRIEB (SICHTBARER MODUS)
-    options = webdriver.ChromeOptions()
-    options.add_argument("--start-maximized")         
-    
-    # NEU: Hinzugefügte Stabilitätsargumente für Ubuntu (auch im sichtbaren Modus notwendig)
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
-    options.add_argument("--disable-gpu")
-    # Ende der NEU hinzugefügten Stabilitätsargumente
+    session = requests.Session()
+    session.headers.update(HEADERS)
 
-    # --- FEHLERBEHEBUNG UBUNTU/DEBIAN: EXPLIZITE BINÄRE PFADSUECHE ---
-    # Sucht nach gängigen Pfaden auf Debian/Ubuntu Systemen.
-    chrome_paths = [
-        '/usr/bin/google-chrome',
-        '/usr/bin/chromium-browser',
-        '/usr/local/bin/google-chrome',
-        '/opt/google/chrome/google-chrome'
-    ]
-    
-    found_path = None
-    for path in chrome_paths:
-        if os.path.exists(path):
-            options.binary_location = path
-            found_path = path
-            break
-            
-    if found_path:
-        print(f"INFO: Chrome/Chromium-Binary-Pfad explizit gesetzt auf: {found_path}")
-    else:
-        print("WARNUNG: Konnte Chrome-Binary nicht an Standardpfaden finden. Verlasse mich auf PATH-Variable.")
-    # -------------------------------------------------------------------
-    
-    try:
-        # Initialisiert ChromeDriver und startet die Session
-        driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
-        
-        print(f"Öffne {URL}...")
-        driver.get(URL)
-        
-        # --- SEITE 1: KURS AUSWÄHLEN ---
-        print(f"Suche Kurs {TARGET_KURS_NR}...")
-        # Sucht den Buchen-Button in der Zeile mit der Kursnummer
-        xpath_button = f"//td[contains(text(), '{TARGET_KURS_NR}')]/..//input[@type='submit'][@value='buchen']"
-        
-        book_btn = WebDriverWait(driver, 10).until(
-            EC.presence_of_element_located((By.XPATH, xpath_button))
-        )
-        
-        # Scrollen & JS Klick
-        driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", book_btn)
-        time.sleep(0.5)
-        driver.execute_script("arguments[0].click();", book_btn)
-        print("Buchen geklickt.")
+    # Schritt 1: Kursseite laden und Buchungsformular finden
+    print(f"Lade Kursseite: {URL}")
+    r1 = session.get(URL, timeout=30)
+    r1.raise_for_status()
+    soup1 = BeautifulSoup(r1.text, "html.parser")
 
-        # Fenster-Wechsel (neuer Tab)
-        original_window = driver.current_window_handle
-        WebDriverWait(driver, 10).until(EC.number_of_windows_to_be(2))
-        for window_handle in driver.window_handles:
-            if window_handle != original_window:
-                driver.switch_to.window(window_handle)
-                break
+    td = soup1.find("td", string=lambda t: t and TARGET_KURS_NR in t)
+    if not td:
+        save_and_exit(r1.text, "fehler.html", f"Kurs {TARGET_KURS_NR} nicht gefunden")
 
-        # --- SEITE 2: FORMULAR AUSFÜLLEN ---
-        print("Fülle Formular aus...")
-        # Warten, bis das erste Feld geladen ist
-        WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.NAME, "vorname")))
+    row = td.find_parent("tr")
+    form1 = row.find("form") if row else None
+    if not form1:
+        save_and_exit(r1.text, "fehler.html", "Kein Formular in der Kurszeile gefunden")
 
-        # 1. Status wählen (wichtig, da es weitere Felder einblenden kann)
-        status_select = Select(driver.find_element(By.NAME, "statusorig"))
-        status_select.select_by_value(USER_DATA['status'])
-        time.sleep(1)
+    # Submit-Button-Wert mitsenden (manche Portale prüfen ihn serverseitig)
+    submit1 = form1.find("input", {"type": "submit", "value": "buchen"})
+    extra1 = {}
+    if submit1 and submit1.get("name"):
+        extra1[submit1["name"]] = "buchen"
 
-        # 2. Matrikelnummer (falls nötig)
-        if "UNIB" in USER_DATA['status']:
-            try:
-                matnr_field = WebDriverWait(driver, 5).until(
-                    EC.element_to_be_clickable((By.NAME, "matnr"))
-                )
-                matnr_field.clear()
-                matnr_field.send_keys(USER_DATA['matnr'])
-            except TimeoutException as e:
-                print(f"Info: Matrikelnummer-Feld war nicht bereit oder nicht nötig (Timeout): {e}")
-            except Exception as e:
-                print(f"Info: Matrikelnummer-Feld-Fehler: {e}")
+    # Schritt 2: Buchungsformular absenden → persönliches Datenformular
+    print(f"Kurs {TARGET_KURS_NR} gefunden. Öffne Buchungsformular...")
+    r2 = submit_form(session, form1, r1.url, extra1)
+    r2.raise_for_status()
+    soup2 = BeautifulSoup(r2.text, "html.parser")
 
-        # 3. Restliche Felder füllen
-        sex_radio = driver.find_element(By.CSS_SELECTOR, f"input[name='sex'][value='{USER_DATA['sex']}']")
-        driver.execute_script("arguments[0].click();", sex_radio)
+    form2 = soup2.find("form")
+    if not form2:
+        save_and_exit(r2.text, "fehler.html", "Persönliches Datenformular nicht gefunden")
 
-        driver.find_element(By.NAME, "vorname").send_keys(USER_DATA['vorname'])
-        driver.find_element(By.NAME, "name").send_keys(USER_DATA['name'])
-        driver.find_element(By.NAME, "strasse").send_keys(USER_DATA['strasse'])
-        driver.find_element(By.NAME, "ort").send_keys(USER_DATA['ort'])
-        driver.find_element(By.NAME, "email").send_keys(USER_DATA['email'])
-        driver.find_element(By.NAME, "telefon").send_keys(USER_DATA['telefon'])
+    # Persönliche Daten zusammenstellen
+    personal = {
+        "statusorig": USER_DATA["status"],
+        "sex":        USER_DATA["sex"],
+        "vorname":    USER_DATA["vorname"],
+        "name":       USER_DATA["name"],
+        "strasse":    USER_DATA["strasse"],
+        "ort":        USER_DATA["ort"],
+        "email":      USER_DATA["email"],
+        "telefon":    USER_DATA["telefon"],
+    }
+    if "UNIB" in USER_DATA["status"]:
+        personal["matnr"] = USER_DATA["matnr"]
 
-        # AGB Checkbox klicken
-        tnbed_checkbox = driver.find_element(By.NAME, "tnbed")
-        driver.execute_script("arguments[0].click();", tnbed_checkbox)
-        
-        # --- TIMER ABWARTEN ---
-        print("--- WARTE 12 SEKUNDEN AUF TIMER (SPAMSCHUTZ) ---")
-        time.sleep(12) 
-        
-        # Sicherstellen, dass der Button über seine ID gefunden wird
-        print("Suche Button 'bs_submit'...")
-        submit_step1 = WebDriverWait(driver, 10).until(
-            EC.element_to_be_clickable((By.ID, "bs_submit"))
-        )
-        
-        driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", submit_step1)
-        time.sleep(0.5)
-        driver.execute_script("arguments[0].click();", submit_step1)
-        print("Erster Schritt abgeschickt.")
+    # AGB-Checkbox: HTML-Standardwert ist "on" falls kein value-Attribut gesetzt
+    tnbed = form2.find("input", {"name": "tnbed"})
+    personal["tnbed"] = tnbed.get("value", "on") if tnbed else "on"
 
-        # --- SEITE 3: BESTÄTIGUNG ---
-        print("Warte auf Bestätigungsseite...")
-        
-        try:
-            final_button = WebDriverWait(driver, 10).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, "input[type='submit'][value='verbindlich buchen']"))
-            )
-            print("Erfolg: Finaler Button gefunden!")
-            
-            # --- BUCHUNG AUSLÖSEN ---
-            # Um wirklich zu buchen, entferne das '#' in der nächsten Zeile:
-            # driver.execute_script("arguments[0].click();", final_button)
-            # print("BUCHUNG WURDE AUSGEFÜHRT!")
+    # Submit-Button einschließen
+    bs_submit = soup2.find("input", {"id": "bs_submit"})
+    if bs_submit and bs_submit.get("name"):
+        personal[bs_submit["name"]] = bs_submit.get("value", "")
 
-        except TimeoutException:
-            print("FEHLER: Konnte Bestätigungsseite (verbindlich buchen) nicht erreichen. Mache Screenshot.")
-            driver.save_screenshot("fehler_screenshot_final.png")
-            raise 
-        except Exception as e:
-             print(f"Unbekannter Fehler beim finalen Schritt: {e}")
-             driver.save_screenshot("fehler_screenshot_final.png")
-             raise 
+    print("Warte 12 Sekunden (Spam-Schutz des Portals)...")
+    time.sleep(12)
 
-        time.sleep(5)
+    # Schritt 3: Persönliche Daten absenden → Bestätigungsseite
+    print("Sende Formulardaten...")
+    r3 = submit_form(session, form2, r2.url, personal)
+    r3.raise_for_status()
+    soup3 = BeautifulSoup(r3.text, "html.parser")
 
-    except Exception as e:
-        # Hier wird der SessionNotCreatedException abgefangen und ausgegeben
-        print(f"\n--- FEHLERBERICHT ---\nEin Fehler ist aufgetreten: {e}")
-        print("\n*** ZUSÄTZLICHE INFORMATION ***")
-        if not found_path:
-            print("Die WARNUNG oben besagt, dass der Chrome-Pfad nicht gefunden wurde.")
-            print("Bitte prüfe, ob Google Chrome oder Chromium installiert ist. Wenn ja, suche den exakten Pfad zur Binärdatei (z.B. /usr/bin/google-chrome) und trage ihn manuell im Skript in der Liste 'chrome_paths' ein.")
-            
-    finally:
-        print("Skript beendet.")
-        if 'driver' in locals() and driver:
-            driver.quit()
+    form3 = soup3.find("form")
+    final_btn = soup3.find("input", {"type": "submit", "value": "verbindlich buchen"})
+
+    if not form3 or not final_btn:
+        save_and_exit(r3.text, "fehler.html", "Bestätigungsseite nicht erreicht")
+
+    # Schritt 4: Verbindliche Buchung absenden
+    print("Bestätigungsseite erreicht. Sende verbindliche Buchung...")
+    extra3 = {}
+    if final_btn.get("name"):
+        extra3[final_btn["name"]] = final_btn.get("value", "verbindlich buchen")
+
+    r4 = submit_form(session, form3, r3.url, extra3)
+    r4.raise_for_status()
+
+    with open("bestaetigung.html", "w", encoding="utf-8") as f:
+        f.write(r4.text)
+    print("Buchung abgeschickt! Bestaetigung gespeichert in bestaetigung.html")
+
 
 if __name__ == "__main__":
     run_bot()
