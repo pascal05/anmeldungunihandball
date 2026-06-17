@@ -81,8 +81,21 @@ URL = "https://www.sportangebot.uni-bonn.de/angebote/aktueller_zeitraum/_Handbal
 TARGET_KURS_NR = "121401"
 ```
 
-Die Kursnummer (6-stellig) findest du auf der Buchungsseite des Hochschulsports in der Kursübersicht.
-Die URL bestimmst du anhand der Sportart — ersetze `_Handball` durch z. B. `_Fussball` oder `_Yoga`.
+**So findest du die URL:**
+
+1. Gehe auf [sportangebot.uni-bonn.de](https://www.sportangebot.uni-bonn.de/angebote/aktueller_zeitraum/_alle.html)
+2. Klicke links in der Sportartenliste auf deine gewünschte Sportart (z. B. „Handball")
+3. Kopiere die URL aus der Adressleiste deines Browsers — sie endet auf etwas wie `_Handball.html`
+4. Trage diese URL in das Skript ein
+
+**So findest du die Kursnummer:**
+
+1. Du bist jetzt auf der Seite deiner Sportart und siehst eine Tabelle mit allen Kursen
+2. In der ersten Spalte steht die 6-stellige Kursnummer (z. B. `121401`)
+3. Such den Kurs mit dem passenden Wochentag und der Uhrzeit
+4. Trage diese Nummer als `TARGET_KURS_NR` ein
+
+> Die Buchungsseite öffnet sich erst zu einem bestimmten Datum und Uhrzeit — vorher erscheint kein „buchen"-Button. Das Skript meldet in diesem Fall einen Fehler. Starte es erst, wenn die Buchung geöffnet ist.
 
 ### Persönliche Daten
 
