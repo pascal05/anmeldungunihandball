@@ -17,7 +17,7 @@ URL = "https://www.sportangebot.uni-bonn.de/angebote/aktueller_zeitraum/_Handbal
 TARGET_KURS_NR = "121401"
 
 USER_DATA = {
-    "sex": "m",         # "m" oder "w"
+    "sex": "m",         # "m", "w", "d", oder "x"
     "vorname": "",
     "name": "",
     "strasse": "",
@@ -132,23 +132,24 @@ def run_bot():
     soup3 = BeautifulSoup(r3.text, "html.parser")
 
     form3 = soup3.find("form")
-    # Final confirm button has a name (cancel/reset buttons do not); label varies by portal state
+    # Find the confirm button — try known labels first, then any submit (excl. cancel/back)
     final_btn = None
     if form3:
         for val in ("verbindlich buchen", "buchen"):
-            final_btn = form3.find("input", {"type": "submit", "value": val, "name": True})
+            final_btn = form3.find("input", {"type": "submit", "value": val})
             if final_btn:
                 break
-        # Fallback: any named submit button
         if not final_btn:
-            final_btn = form3.find(lambda tag: tag.name == "input" and tag.get("type") == "submit" and tag.get("name"))
+            final_btn = form3.find("input", {"type": "submit"})
 
     if not form3 or not final_btn:
         save_and_exit(r3.text, "fehler.html", "Bestätigungsseite nicht erreicht")
 
     # Schritt 4: Verbindliche Buchung absenden
     print("Bestätigungsseite erreicht. Sende verbindliche Buchung...")
-    extra3 = {final_btn["name"]: final_btn.get("value", "buchen")}
+    extra3 = {}
+    if final_btn.get("name"):
+        extra3[final_btn["name"]] = final_btn.get("value", "buchen")
 
     r4 = submit_form(session, form3, r3.url, extra3, referer=r3.url)
     r4.raise_for_status()
