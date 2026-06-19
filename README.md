@@ -142,6 +142,71 @@ Der Bot bucht den Kurs vollautomatisch. Du erhältst eine Bestätigungs-E-Mail v
 
 ---
 
+## Schritt 6 — Automatisch zur richtigen Zeit starten (Crontab / Aufgabenplanung)
+
+Die Buchung öffnet zu einem festen Zeitpunkt (z. B. 22.06.2026 um 07:00 Uhr). Mit einem Cron-Job läuft das Skript automatisch genau dann — du musst nicht selbst am Rechner sitzen.
+
+### Mac / Linux
+
+**1. Vollständigen Pfad zu Python und zum Skript ermitteln:**
+
+```bash
+which python3          # z. B. /usr/bin/python3
+realpath anmeldung.py  # z. B. /home/pascal/anmeldungunihandball/anmeldung.py
+```
+
+**2. Crontab öffnen:**
+
+```bash
+crontab -e
+```
+
+Es öffnet sich ein Texteditor. Füge am Ende eine neue Zeile hinzu:
+
+```
+# Format: Minute Stunde Tag Monat Wochentag Befehl
+# Wochentag: 1 = Montag, 0 = Sonntag, 6 = Samstag
+0 7 * * 1 /usr/bin/python3 /home/pascal/anmeldungunihandball/anmeldung.py >> /home/pascal/anmeldungunihandball/cron.log 2>&1
+```
+
+Dieser Eintrag startet das Skript **jeden Montag um 07:00 Uhr**. Die Ausgabe (inkl. Fehlermeldungen) landet in `cron.log` im Projektordner.
+
+> Passe die Pfade an deinen Rechner an. Den vollständigen Pfad zu python3 findest du mit `which python3`.
+
+**3. Speichern und schließen** (in nano: `Ctrl + O`, dann `Ctrl + X`).
+
+**4. Eintrag prüfen:**
+
+```bash
+crontab -l
+```
+
+**Cron-Job wieder entfernen:**
+
+```bash
+crontab -e
+```
+
+Lösche die hinzugefügte Zeile, speichere und schließe.
+
+---
+
+### Windows — Aufgabenplanung
+
+1. `Win + S` → „Aufgabenplanung" → Enter
+2. Rechts: **Einfache Aufgabe erstellen…**
+3. Name vergeben (z. B. „Handball Buchung"), weiter
+4. Trigger: **Wöchentlich**, Wochentag **Montag**, Uhrzeit des Buchungsstarts eintragen, weiter
+5. Aktion: **Programm starten**, weiter
+6. Programm/Skript: Pfad zu `python.exe` (z. B. `C:\Python311\python.exe`)
+7. Argumente: `C:\Pfad\zu\anmeldungunihandball\anmeldung.py`
+8. Starten in: `C:\Pfad\zu\anmeldungunihandball\`
+9. Fertig stellen
+
+> Wichtig: Haken bei **„Aufgabe mit höchsten Rechten ausführen"** setzen, damit die Aufgabe auch im Hintergrund läuft, wenn du nicht angemeldet bist.
+
+---
+
 ## Was passiert bei einem Fehler?
 
 Schlägt eine der Buchungsschritte fehl, speichert das Skript die Serverantwort als `fehler.html` im selben Ordner. Öffne diese Datei in einem Browser, um zu sehen, was schiefgelaufen ist (z. B. Kurs bereits ausgebucht, falsche Kursnummer, Buchung noch nicht geöffnet).
