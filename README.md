@@ -77,39 +77,39 @@ Passe die folgenden Felder oben in der Datei an:
 ### Kurs-URL und Kursnummer
 
 ```python
-URL = "https://www.sportangebot.uni-bonn.de/angebote/aktueller_zeitraum/_Handball.html"
-TARGET_KURS_NR = "121401"
+URL = "https://www.sportangebot.uni-bonn.de/angebote/aktueller_zeitraum/_Basketball.html"
+TARGET_KURS_NR = "000000"
 ```
 
 **So findest du die URL:**
 
 1. Gehe auf [sportangebot.uni-bonn.de](https://www.sportangebot.uni-bonn.de/angebote/aktueller_zeitraum/_alle.html)
-2. Klicke links in der Sportartenliste auf deine gewünschte Sportart (z. B. „Handball")
-3. Kopiere die URL aus der Adressleiste deines Browsers — sie endet auf etwas wie `_Handball.html`
+2. Klicke links in der Sportartenliste auf deine gewünschte Sportart (z. B. „Basketball")
+3. Kopiere die URL aus der Adressleiste deines Browsers — sie endet auf etwas wie `_Basketball.html`
 4. Trage diese URL in das Skript ein
 
 **So findest du die Kursnummer:**
 
 1. Du bist jetzt auf der Seite deiner Sportart und siehst eine Tabelle mit allen Kursen
-2. In der ersten Spalte steht die 6-stellige Kursnummer (z. B. `121401`)
+2. In der ersten Spalte steht die 6-stellige Kursnummer (z. B. `121106`)
 3. Such den Kurs mit dem passenden Wochentag und der Uhrzeit
 4. Trage diese Nummer als `TARGET_KURS_NR` ein
 
-> Die Buchungsseite öffnet sich erst zu einem bestimmten Datum und Uhrzeit — vorher erscheint kein „buchen"-Button. Das Skript meldet in diesem Fall einen Fehler. Starte es erst, wenn die Buchung geöffnet ist.
+> Die Buchungsseite öffnet sich erst zu einem bestimmten Datum und Uhrzeit — vorher erscheint kein „buchen"-Button. Das Skript zeigt in diesem Fall eine Fehlermeldung mit dem genauen Öffnungszeitpunkt. Starte es erst, wenn die Buchung geöffnet ist.
 
 ### Persönliche Daten
 
 ```python
 USER_DATA = {
-    "sex": "m",           # "m" = männlich, "w" = weiblich, "d" = divers, "x" = keine Angabe
-    "vorname": "Max",
-    "name": "Mustermann",
+    "sex": "m",              # "m" = männlich, "w" = weiblich, "d" = divers, "x" = keine Angabe
+    "vorname": "Vorname",
+    "name": "Nachname",
     "strasse": "Musterstraße 1",
-    "ort": "53111 Bonn",
-    "status": "S-UNIB",   # Studierende Uni Bonn — andere Optionen siehe unten
-    "matnr": "123456",    # Matrikelnummer (nur für S-UNIB)
+    "ort": "12345 Musterstadt",
+    "status": "S-UNIB",      # Statusoptionen siehe Tabelle unten
+    "matnr": "1234567",      # Matrikelnummer (nur für S-UNIB und ähnliche)
     "email": "deine@email.de",
-    "telefon": "0151123456",
+    "telefon": "",           # optional — leer lassen zum Weglassen
 }
 ```
 
@@ -138,13 +138,15 @@ python anmeldung.py
 python3 anmeldung.py
 ```
 
-Der Bot bucht den Kurs vollautomatisch. Du erhältst eine Bestätigungs-E-Mail vom Hochschulsport an die angegebene Adresse.
+Der Bot bucht den Kurs vollautomatisch. Bei manchen Kursen (z. B. Einzelstunden mit Terminauswahl) erscheint zwischen dem Klick auf „buchen" und dem Eingabeformular eine zusätzliche Seite — das Skript erkennt und überspringt diese automatisch.
+
+Du erhältst eine Bestätigungs-E-Mail vom Hochschulsport an die angegebene Adresse.
 
 ---
 
 ## Schritt 6 — Automatisch zur richtigen Zeit starten (Crontab / Aufgabenplanung)
 
-Die Buchung öffnet zu einem festen Zeitpunkt (z. B. 22.06.2026 um 07:00 Uhr). Mit einem Cron-Job läuft das Skript automatisch genau dann — du musst nicht selbst am Rechner sitzen.
+Die Buchung öffnet zu einem festen Zeitpunkt (z. B. 01.07.2026 um 07:00 Uhr). Mit einem Cron-Job läuft das Skript automatisch genau dann — du musst nicht selbst am Rechner sitzen.
 
 ### Mac / Linux
 
@@ -165,13 +167,13 @@ Es öffnet sich ein Texteditor. Füge am Ende eine neue Zeile hinzu:
 
 ```
 # Format: Minute Stunde Tag Monat Wochentag Befehl
-# Wochentag: 1 = Montag, 0 = Sonntag, 6 = Samstag
-0 7 * * 1 /usr/bin/python3 /home/pascal/anmeldungunihandball/anmeldung.py >> /home/pascal/anmeldungunihandball/cron.log 2>&1
+# Wochentag: 0 = Sonntag, 1 = Montag, ..., 6 = Samstag
+0 7 1 7 * /usr/bin/python3 /home/pascal/anmeldungunihandball/anmeldung.py >> /home/pascal/anmeldungunihandball/cron.log 2>&1
 ```
 
-Dieser Eintrag startet das Skript **jeden Montag um 07:00 Uhr**. Die Ausgabe (inkl. Fehlermeldungen) landet in `cron.log` im Projektordner.
+Dieses Beispiel startet das Skript am **1. Juli um 07:00 Uhr**. Passe Datum und Uhrzeit an den tatsächlichen Buchungsstart deines Kurses an. Die Ausgabe (inkl. Fehlermeldungen) landet in `cron.log` im Projektordner.
 
-> Passe die Pfade an deinen Rechner an. Den vollständigen Pfad zu python3 findest du mit `which python3`.
+> Den vollständigen Pfad zu python3 findest du mit `which python3`. Den Pfad zum Skript mit `realpath anmeldung.py`.
 
 **3. Speichern und schließen** (in nano: `Ctrl + O`, dann `Ctrl + X`).
 
@@ -195,8 +197,8 @@ Lösche die hinzugefügte Zeile, speichere und schließe.
 
 1. `Win + S` → „Aufgabenplanung" → Enter
 2. Rechts: **Einfache Aufgabe erstellen…**
-3. Name vergeben (z. B. „Handball Buchung"), weiter
-4. Trigger: **Wöchentlich**, Wochentag **Montag**, Uhrzeit des Buchungsstarts eintragen, weiter
+3. Name vergeben (z. B. „Basketball Buchung"), weiter
+4. Trigger: **Einmalig**, Datum und Uhrzeit des Buchungsstarts eintragen, weiter
 5. Aktion: **Programm starten**, weiter
 6. Programm/Skript: Pfad zu `python.exe` (z. B. `C:\Python311\python.exe`)
 7. Argumente: `C:\Pfad\zu\anmeldungunihandball\anmeldung.py`
@@ -209,7 +211,15 @@ Lösche die hinzugefügte Zeile, speichere und schließe.
 
 ## Was passiert bei einem Fehler?
 
-Schlägt eine der Buchungsschritte fehl, speichert das Skript die Serverantwort als `fehler.html` im selben Ordner. Öffne diese Datei in einem Browser, um zu sehen, was schiefgelaufen ist (z. B. Kurs bereits ausgebucht, falsche Kursnummer, Buchung noch nicht geöffnet).
+Schlägt einer der Buchungsschritte fehl, speichert das Skript die Serverantwort als `fehler.html` im selben Ordner. Öffne diese Datei in einem Browser, um zu sehen, was schiefgelaufen ist.
+
+Mögliche Ursachen:
+
+- **Buchung noch nicht geöffnet** — das Skript zeigt den genauen Öffnungszeitpunkt in der Fehlermeldung
+- **Kurs bereits ausgebucht** — kein Buchen-Button mehr sichtbar
+- **Falsche Kursnummer** — `TARGET_KURS_NR` prüfen
+- **Daten abgelehnt** — z. B. ungültige Matrikelnummer oder E-Mail-Adresse
+- **Portal-Fehler** — z. B. bereits für diesen Kurs angemeldet
 
 Bei erfolgreicher Buchung wird die Bestätigungsseite als `bestaetigung.html` gespeichert.
 
