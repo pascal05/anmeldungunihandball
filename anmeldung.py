@@ -25,7 +25,7 @@ USER_DATA = {
     "status": "S-UNIB", # Student Uni Bonn
     "matnr": "",
     "email": "",
-    "telefon": "",
+    "telefon": "",      # optional — leave empty to omit
 }
 
 # --- BOT ---
@@ -112,9 +112,9 @@ def run_bot():
         "strasse":    USER_DATA["strasse"],
         "ort":        USER_DATA["ort"],
         "email":      USER_DATA["email"],
-        "telefon":    USER_DATA["telefon"],
         "newsletter": "",
     }
+    personal["telefon"] = USER_DATA.get("telefon", "")
     if "UNIB" in USER_DATA["status"]:
         personal["matnr"] = USER_DATA["matnr"]
 
