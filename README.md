@@ -70,9 +70,15 @@ pip3 install requests beautifulsoup4
 
 ## Schritt 4 — Skript konfigurieren
 
-Öffne die Datei `anmeldung.py` mit einem Texteditor (z. B. Notepad auf Windows, TextEdit auf Mac, oder gedit/nano auf Linux).
+Kopiere `config.example.py` zu `config.py` (im selben Ordner) und öffne `config.py` mit einem Texteditor (z. B. Notepad auf Windows, TextEdit auf Mac, oder gedit/nano auf Linux).
 
-Passe die folgenden Felder oben in der Datei an:
+```bash
+cp config.example.py config.py
+```
+
+> `config.py` enthält deine persönlichen Daten und wird von git ignoriert — sie landen also nie im Repository, auch nicht bei `git push`.
+
+Passe die folgenden Felder in `config.py` an:
 
 ### Kurs-URL und Kursnummer
 
@@ -95,7 +101,7 @@ TARGET_KURS_NR = "000000"
 3. Such den Kurs mit dem passenden Wochentag und der Uhrzeit
 4. Trage diese Nummer als `TARGET_KURS_NR` ein
 
-> Die Buchungsseite öffnet sich erst zu einem bestimmten Datum und Uhrzeit — vorher erscheint kein „buchen"-Button. Das Skript zeigt in diesem Fall eine Fehlermeldung mit dem genauen Öffnungszeitpunkt. Starte es erst, wenn die Buchung geöffnet ist.
+> Die Buchungsseite öffnet sich erst zu einem bestimmten Datum und Uhrzeit — vorher erscheint kein „buchen"-Button. Startest du das Skript kurz davor oder exakt zum Öffnungszeitpunkt (z. B. per Cron), versucht es automatisch bis zu 20-mal im Abstand von 3 Sekunden erneut, bevor es aufgibt. Bleibt der Button danach weiterhin unsichtbar, zeigt das Skript eine Fehlermeldung mit dem genauen Öffnungszeitpunkt.
 
 ### Persönliche Daten
 

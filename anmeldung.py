@@ -11,24 +11,22 @@ import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin
 
-# --- KONFIGURATION ---
-
-URL = "https://www.sportangebot.uni-bonn.de/angebote/aktueller_zeitraum/_Basketball.html"  # Sportart-URL aus dem Portal
-TARGET_KURS_NR = "000000"  # 6-stellige Kursnummer aus der Kurstabelle
-
-USER_DATA = {
-    "sex": "m",              # "m" = männlich, "w" = weiblich, "d" = divers, "x" = keine Angabe
-    "vorname": "Vorname",
-    "name": "Nachname",
-    "strasse": "Musterstraße 1",
-    "ort": "12345 Musterstadt",
-    "status": "S-UNIB",      # Statusoptionen siehe README
-    "matnr": "1234567",      # Matrikelnummer (nur für S-UNIB und ähnliche)
-    "email": "deine@email.de",
-    "telefon": "",           # optional — leer lassen zum Weglassen
-}
+try:
+    from config import URL, TARGET_KURS_NR, USER_DATA
+except ImportError:
+    sys.exit(
+        "config.py nicht gefunden. Kopiere config.example.py zu config.py "
+        "und trage dort deine Daten ein."
+    )
 
 # --- BOT ---
+
+# Falls die Buchung exakt zum Öffnungszeitpunkt per Cron gestartet wird, kann
+# die Seite im selben Moment noch die alte Ansicht (Autostart-Hinweis statt
+# "buchen"-Button) ausliefern. Es wird daher mehrfach mit kurzer Pause erneut
+# versucht, bevor endgültig aufgegeben wird.
+BUCHEN_RETRY_ATTEMPTS = 20
+BUCHEN_RETRY_DELAY = 3  # Sekunden zwischen den Versuchen
 
 HEADERS = {
     "User-Agent": (
@@ -130,30 +128,49 @@ def skip_intermediate_pages(session, soup, url):
     return None, url, soup
 
 
-def run_bot():
-    session = requests.Session()
-    session.headers.update(HEADERS)
+def find_buchen_button(session):
+    """
+    Lädt die Kursseite und sucht den Buchen-Button in der Kurszeile. Zeigt die
+    Zeile stattdessen einen Autostart-Hinweis (z. B. "ab 13.07., 07:00"), ist
+    die Buchung noch nicht offen — dann wird mehrfach mit kurzer Pause erneut
+    versucht (wichtig bei Cron-Start exakt zur Öffnungszeit).
+    Gibt (r1, submit1) zurück.
+    """
+    for attempt in range(1, BUCHEN_RETRY_ATTEMPTS + 1):
+        print(f"Lade Kursseite: {URL}")
+        r1 = session.get(URL, timeout=30)
+        r1.raise_for_status()
+        soup1 = BeautifulSoup(r1.text, "html.parser")
 
-    # Schritt 1: Kursseite laden und Buchungsformular finden
-    print(f"Lade Kursseite: {URL}")
-    r1 = session.get(URL, timeout=30)
-    r1.raise_for_status()
-    soup1 = BeautifulSoup(r1.text, "html.parser")
+        row = soup1.find("tr", id=f"K{TARGET_KURS_NR}")
+        if not row:
+            save_and_exit(r1.text, "fehler.html",
+                          f"Kurs {TARGET_KURS_NR} nicht in der Kursliste gefunden "
+                          f"(falsche Kurs-Nr. oder Seite hat sich geändert)")
 
-    row = soup1.find("tr", id=f"K{TARGET_KURS_NR}")
-    if not row:
-        save_and_exit(r1.text, "fehler.html",
-                      f"Kurs {TARGET_KURS_NR} nicht in der Kursliste gefunden "
-                      f"(falsche Kurs-Nr. oder Seite hat sich geändert)")
+        submit1 = row.find("input", {"type": "submit", "value": "buchen"})
+        if submit1:
+            return r1, submit1
 
-    submit1 = row.find("input", {"type": "submit", "value": "buchen"})
-    if not submit1:
         autostart = row.find(class_="bs_btn_autostart")
+        if autostart and attempt < BUCHEN_RETRY_ATTEMPTS:
+            print(f"  Buchung noch nicht offen ({autostart.get_text(strip=True)}). "
+                  f"Versuch {attempt}/{BUCHEN_RETRY_ATTEMPTS}, warte {BUCHEN_RETRY_DELAY}s...")
+            time.sleep(BUCHEN_RETRY_DELAY)
+            continue
+
         hint = f" — öffnet {autostart.get_text(strip=True)}" if autostart else ""
         save_and_exit(r1.text, "fehler.html",
                       f"Kurs {TARGET_KURS_NR}: kein Buchen-Button sichtbar"
                       f"{hint} (Buchung noch nicht geöffnet oder Kurs bereits ausgebucht)")
 
+
+def run_bot():
+    session = requests.Session()
+    session.headers.update(HEADERS)
+
+    # Schritt 1: Kursseite laden und Buchungsformular finden
+    r1, submit1 = find_buchen_button(session)
     form1 = submit1.find_parent("form")
     if not form1:
         save_and_exit(r1.text, "fehler.html",

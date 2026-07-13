@@ -147,6 +147,13 @@ ENV/
 env.bak/
 venv.bak/
 
+# Lokale Konfiguration mit persönlichen Daten (siehe config.example.py)
+config.py
+
+# Laufzeit-Ausgaben des Bots (enthalten persönliche Buchungsdaten)
+bestaetigung.html
+fehler.html
+
 # Spyder project settings
 .spyderproject
 .spyproject
