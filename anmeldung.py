@@ -28,6 +28,13 @@ except ImportError:
 BUCHEN_RETRY_ATTEMPTS = 20
 BUCHEN_RETRY_DELAY = 3  # Sekunden zwischen den Versuchen
 
+# Der letzte Schritt (verbindliche Buchung) schlägt beim Ansturm exakt zur
+# Öffnungszeit gelegentlich mit einem generischen Portal-Fehler ("unbekannter
+# Fehler") fehl, obwohl ein erneuter Versuch kurz darauf klappt. Daher wird der
+# finale Submit mehrfach wiederholt, bevor endgültig aufgegeben wird.
+FINAL_RETRY_ATTEMPTS = 5
+FINAL_RETRY_DELAY = 5  # Sekunden zwischen den Versuchen
+
 HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
@@ -252,19 +259,29 @@ def run_bot():
     if final_btn.get("name"):
         extra3[final_btn["name"]] = final_btn.get("value", "buchen")
 
-    r4 = submit_form(session, form3, r3.url, extra3, referer=r3.url)
-    r4.raise_for_status()
-
-    soup4 = BeautifulSoup(r4.text, "html.parser")
-    page_text = soup4.get_text()
-
     # Portal-seitige Fehlermeldung erkennen
     error_phrases = [
         "konnte nicht ausgeführt werden",
         "booking could not be completed",
         "Fehler aufgetreten",
     ]
-    if any(p in page_text for p in error_phrases):
+
+    for attempt in range(1, FINAL_RETRY_ATTEMPTS + 1):
+        r4 = submit_form(session, form3, r3.url, extra3, referer=r3.url)
+        r4.raise_for_status()
+
+        soup4 = BeautifulSoup(r4.text, "html.parser")
+        page_text = soup4.get_text()
+
+        if not any(p in page_text for p in error_phrases):
+            break
+
+        if attempt < FINAL_RETRY_ATTEMPTS:
+            print(f"  Portal meldet Buchungsfehler (Versuch {attempt}/{FINAL_RETRY_ATTEMPTS}), "
+                  f"warte {FINAL_RETRY_DELAY}s und versuche erneut...")
+            time.sleep(FINAL_RETRY_DELAY)
+            continue
+
         with open("fehler.html", "w", encoding="utf-8") as f:
             f.write(r4.text)
         sys.exit(f"Portal meldet Buchungsfehler für '{kurs}' — Details in fehler.html")
